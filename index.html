@@ -3,832 +3,373 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PromoterSync - Group Governance Dashboard for Rajesh and Mahesh</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>PromoterSync - Inter-Company Task Management</title>
   
-  <style>
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f8fafc; color: #0f172a; }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- html2pdf.js CDN for PDF Summary Reports -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    /* EXECUTIVE PRINT STYLESHEET */
-    @media print {
-      body * { visibility: hidden; }
-      #print-report-area, #print-report-area * { visibility: visible; }
-      #print-report-area { position: absolute; left: 0; top: 0; width: 100%; font-size: 11pt; color: #000; }
-      .no-print { display: none !important; }
-      .page-break { page-break-before: always; }
-    }
+  <!-- Firebase App & Firestore Compatibility SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    .hidden-gate { display: none !important; }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
 
-  <!-- TOP GOVERNANCE NAVBAR -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-      <div class="flex items-center space-x-3">
-        <div class="bg-slate-900 text-white w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg shadow">PS</div>
-        <div>
-          <h1 class="text-lg font-bold text-slate-900 leading-none">PromoterSync</h1>
-          <p class="text-xs text-slate-500 font-medium">Group Company Governance Board</p>
-        </div>
-      </div>
-
-      <!-- PROMOTER CONTEXT SWITCHER (DR / NG / Joint) -->
-      <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-        <button id="btn-promoter-dr" onclick="switchPromoter('DR')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all">
-          <span class="w-2.5 h-2.5 inline-block rounded-full bg-blue-600 mr-1"></span> Promoter DR
-        </button>
-        <button id="btn-promoter-ng" onclick="switchPromoter('NG')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all">
-          <span class="w-2.5 h-2.5 inline-block rounded-full bg-purple-600 mr-1"></span> Promoter NG
-        </button>
-        <button id="btn-joint" onclick="switchPromoter('Joint')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all">
-          <i class="fa-solid fa-users text-slate-500 mr-1"></i> Joint View
-        </button>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <button onclick="generatePDFReport()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-file-pdf"></i> Generate PDF Report
-        </button>
-        <button onclick="openCompanyManager()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-2 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-building-user text-slate-600"></i> Group Entities
-        </button>
-        <button onclick="openNewTaskModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow flex items-center gap-2 transition">
-          <i class="fa-solid fa-plus"></i> New Directive
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- MAIN GOVERNANCE BODY -->
-  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full flex flex-col gap-6 no-print">
-
-    <!-- TASK-WISE DECISION PERFORMANCE OVERVIEW -->
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Directives</div>
-        <div id="metric-total" class="text-2xl font-bold text-slate-900 mt-1">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">On-Time Rate</div>
-        <div id="metric-ontime" class="text-2xl font-bold text-emerald-600 mt-1">100%</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Revisions Required</div>
-        <div id="metric-revisions" class="text-2xl font-bold text-purple-600 mt-1">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Awaiting Review</div>
-        <div id="metric-delivered" class="text-2xl font-bold text-amber-600 mt-1">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Active Holds</div>
-        <div id="metric-hold" class="text-2xl font-bold text-orange-600 mt-1">0</div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Portfolio Size</div>
-        <div id="metric-companies" class="text-2xl font-bold text-slate-900 mt-1">5 Entities</div>
-      </div>
-    </div>
-
-    <!-- FILTER & SEARCH BAR -->
-    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
-      <div id="company-filter-bar" class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 custom-scrollbar"></div>
-
-      <div class="relative w-full md:w-64">
-        <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-        <input type="text" id="search-input" onkeyup="renderBoard()" placeholder="Search ID (001 - APEX) or title..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-400">
-      </div>
-    </div>
-
-    <!-- KANBAN BOARD CONTAINER -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
-      <!-- GIVEN -->
-      <div class="bg-slate-100/70 p-3 rounded-xl border border-slate-200 flex flex-col">
-        <div class="flex justify-between items-center mb-3 font-semibold text-xs text-slate-700 uppercase tracking-wider">
-          <span><i class="fa-regular fa-paper-plane text-blue-600 mr-1.5"></i> Given / Issued</span>
-          <span id="count-given" class="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-600">0</span>
-        </div>
-        <div id="col-given" class="space-y-3 flex-1 overflow-y-auto max-h-[600px] custom-scrollbar pr-1"></div>
-      </div>
-
-      <!-- IN PROGRESS -->
-      <div class="bg-slate-100/70 p-3 rounded-xl border border-slate-200 flex flex-col">
-        <div class="flex justify-between items-center mb-3 font-semibold text-xs text-slate-700 uppercase tracking-wider">
-          <span><i class="fa-solid fa-spinner text-indigo-600 mr-1.5"></i> In Execution</span>
-          <span id="count-in-progress" class="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-600">0</span>
-        </div>
-        <div id="col-in-progress" class="space-y-3 flex-1 overflow-y-auto max-h-[600px] custom-scrollbar pr-1"></div>
-      </div>
-
-      <!-- DELIVERED -->
-      <div class="bg-slate-100/70 p-3 rounded-xl border border-slate-200 flex flex-col">
-        <div class="flex justify-between items-center mb-3 font-semibold text-xs text-slate-700 uppercase tracking-wider">
-          <span><i class="fa-solid fa-circle-check text-amber-600 mr-1.5"></i> Delivered</span>
-          <span id="count-delivered" class="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-600">0</span>
-        </div>
-        <div id="col-delivered" class="space-y-3 flex-1 overflow-y-auto max-h-[600px] custom-scrollbar pr-1"></div>
-      </div>
-
-      <!-- CLOSED & REVIEWED (COLLAPSIBLE / MINIMIZABLE) -->
-      <div class="bg-slate-100/70 p-3 rounded-xl border border-slate-200 flex flex-col">
-        <div onclick="toggleClosedColumn()" class="flex justify-between items-center mb-3 font-semibold text-xs text-slate-700 uppercase tracking-wider cursor-pointer hover:text-slate-900 select-none">
-          <span class="flex items-center gap-1.5">
-            <i class="fa-solid fa-lock text-emerald-600"></i> Closed & Reviewed
-            <i id="closed-collapse-icon" class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
-          </span>
-          <span id="count-closed" class="bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-600">0</span>
-        </div>
-        <div id="col-closed" class="space-y-3 flex-1 overflow-y-auto max-h-[600px] custom-scrollbar pr-1"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- PRINT-ONLY REPORT CONTAINER -->
-  <div id="print-report-area" class="p-8 hidden"></div>
-
-  <!-- IN-APP COMPANY MANAGER MODAL -->
-  <div id="modal-company-manager" class="fixed inset-0 bg-slate-900/40 z-50 hidden flex items-center justify-center p-4 no-print">
-    <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 p-6 space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-slate-900 text-base"><i class="fa-solid fa-building mr-2 text-slate-700"></i>Manage Group Entities & Suffixes</h3>
-        <button onclick="closeCompanyManager()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-
-      <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
-        <span class="text-xs font-bold text-slate-700 block uppercase tracking-wider">Add New Group Entity</span>
-        <div class="grid grid-cols-3 gap-2">
-          <input type="text" id="add-comp-code" maxlength="4" placeholder="Suffix (e.g. APEX)" class="bg-white border border-slate-200 rounded p-1.5 text-xs focus:outline-none uppercase font-mono">
-          <input type="text" id="add-comp-name" placeholder="Full Company Name" class="col-span-2 bg-white border border-slate-200 rounded p-1.5 text-xs focus:outline-none">
-        </div>
-        <button onclick="addNewCompany()" class="w-full bg-slate-900 text-white py-1.5 rounded text-xs font-semibold shadow hover:bg-slate-800">Add Company Entity</button>
-      </div>
-
-      <div>
-        <span class="text-xs font-bold text-slate-500 block uppercase tracking-wider mb-2">Existing Entities (Edit Suffix up to 4 Letters or Name)</span>
-        <div id="company-manager-list" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1"></div>
-      </div>
-
-      <div class="flex justify-end border-t border-slate-100 pt-3">
-        <button onclick="closeCompanyManager()" class="px-4 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded-lg">Done</button>
-      </div>
+  <!-- STATIC PIN GATE OVERLAY -->
+  <div id="pin-gate" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50">
+    <div class="bg-slate-800 p-8 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md text-center">
+      <h1 class="text-2xl font-bold text-blue-400 mb-2">PromoterSync Access</h1>
+      <p class="text-sm text-slate-400 mb-6">Enter access PIN to continue</p>
+      <input type="password" id="pin-input" maxlength="8" placeholder="Enter PIN" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 text-center text-xl tracking-widest text-white mb-4 focus:outline-none focus:border-blue-500">
+      <button onclick="verifyPin()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors">Unlock System</button>
+      <p id="pin-error" class="text-red-400 text-sm mt-3 hidden">Incorrect PIN. Please try again.</p>
     </div>
   </div>
 
-  <!-- CREATE NEW TASK MODAL -->
-  <div id="modal-new-task" class="fixed inset-0 bg-slate-900/40 z-50 hidden flex items-center justify-center p-4 no-print">
-    <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 p-6 space-y-4">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-        <h3 class="font-bold text-slate-900 text-base">Issue New Governance Directive</h3>
-        <button onclick="closeNewTaskModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+  <!-- MAIN APP CONTAINER -->
+  <div id="app-container" class="hidden-gate max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- HEADER & PROMOTER SWITCHER -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-6 mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-extrabold text-blue-400 tracking-tight">PromoterSync</h1>
+        <p class="text-slate-400 text-sm mt-1">Inter-Company Operations Task Dashboard</p>
       </div>
+      
+      <div class="flex items-center gap-4 bg-slate-800/80 p-3 rounded-lg border border-slate-700">
+        <label for="promoter-select" class="text-xs uppercase tracking-wider font-bold text-slate-400">Current Role:</label>
+        <select id="promoter-select" onchange="switchPromoter(this.value)" class="bg-slate-900 border border-slate-700 text-blue-400 font-semibold rounded px-3 py-1 text-sm focus:outline-none">
+          <option value="DR">Promoter DR</option>
+          <option value="NG">Promoter NG</option>
+        </select>
+        <button onclick="exportToPDF()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded transition">Download PDF Report</button>
+        <button onclick="lockApp()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded transition">Lock Session</button>
+      </div>
+    </header>
 
-      <div class="space-y-3">
-        <div>
-          <label class="text-xs font-semibold text-slate-600 block mb-1">Target Group Company</label>
-          <select id="new-company" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none"></select>
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-600 block mb-1">Directive Title</label>
-          <input type="text" id="new-title" placeholder="e.g. Approve Board Audit Resolution" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none">
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-600 block mb-1">Scope & Detail</label>
-          <textarea id="new-scope" rows="3" placeholder="Describe key operational requirements..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none"></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
+    <!-- DASHBOARD ACTIONS & CONTROLS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      
+      <!-- CREATE NEW TASK FORM -->
+      <div class="md:col-span-1 bg-slate-800/50 p-6 rounded-xl border border-slate-800">
+        <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center justify-between">
+          <span>Create Task</span>
+          <span id="next-task-id" class="text-xs text-blue-400 font-mono">ID: ...</span>
+        </h2>
+        
+        <form id="create-task-form" onsubmit="handleCreateTask(event)" class="space-y-4">
           <div>
-            <label class="text-xs font-semibold text-slate-600 block mb-1">Assignee</label>
-            <select id="new-assignee" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none">
-              <option value="NG">Promoter NG</option>
+            <label class="block text-xs text-slate-400 mb-1">Task Title</label>
+            <input type="text" id="task-title" required class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+          </div>
+          
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Assigned Promoter</label>
+            <select id="task-assignee" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100 focus:outline-none">
               <option value="DR">Promoter DR</option>
+              <option value="NG">Promoter NG</option>
             </select>
           </div>
+
           <div>
-            <label class="text-xs font-semibold text-slate-600 block mb-1">Target Date</label>
-            <input type="date" id="new-date" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none">
+            <label class="block text-xs text-slate-400 mb-1">Linked Decision / Ref</label>
+            <input type="text" id="task-decision" placeholder="e.g. Agreement #402" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
           </div>
+
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded text-sm transition">Add Task to Cloud</button>
+        </form>
+      </div>
+
+      <!-- DASHBOARD METRICS OVERVIEW -->
+      <div class="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-800/30 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase">Total Tasks</span>
+          <span id="stat-total" class="text-3xl font-bold text-slate-100 mt-2">0</span>
+        </div>
+        <div class="bg-slate-800/30 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+          <span class="text-xs font-medium text-yellow-400 uppercase">On Hold</span>
+          <span id="stat-hold" class="text-3xl font-bold text-yellow-400 mt-2">0</span>
+        </div>
+        <div class="bg-slate-800/30 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+          <span class="text-xs font-medium text-blue-400 uppercase">Active</span>
+          <span id="stat-active" class="text-3xl font-bold text-blue-400 mt-2">0</span>
+        </div>
+        <div class="bg-slate-800/30 border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
+          <span class="text-xs font-medium text-emerald-400 uppercase">Completed</span>
+          <span id="stat-completed" class="text-3xl font-bold text-emerald-400 mt-2">0</span>
         </div>
       </div>
-
-      <div class="flex justify-end gap-2 border-t border-slate-100 pt-3">
-        <button onclick="closeNewTaskModal()" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-        <button onclick="createNewTask()" class="px-4 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded-lg shadow">Issue Task</button>
-      </div>
     </div>
-  </div>
 
-  <!-- TASK DETAIL & CHAT DRAWER -->
-  <div id="task-drawer" class="fixed inset-0 bg-slate-900/40 z-50 hidden flex justify-end no-print">
-    <div class="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col border-l border-slate-200">
-      <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-        <div>
-          <span id="drawer-formatted-id" class="text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">001 - APEX</span>
-          <span id="drawer-company-name" class="ml-2 text-xs font-medium text-slate-500">Apex Holdings</span>
-        </div>
-        <button onclick="closeDrawer()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    <!-- TASK LIST BOARD -->
+    <main>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-slate-200">Inter-Company Tasks</h2>
+        <span class="text-xs text-slate-500">Synced Real-Time with Firebase Cloud</span>
       </div>
 
-      <div class="p-6 flex-1 overflow-y-auto space-y-6 custom-scrollbar" id="drawer-body"></div>
-    </div>
+      <div id="tasks-container" class="space-y-4">
+        <div class="text-center py-12 text-slate-500">Loading tasks from cloud...</div>
+      </div>
+    </main>
   </div>
 
-  <!-- ENGINE SCRIPT -->
+  <!-- FIREBASE CONFIG & APPLICATION CORE LOGIC -->
   <script>
-    let companyMap = {
-      'APEX': 'Apex Holdings',
-      'BLUE': 'BlueSky Ventures',
-      'CRES': 'Crestline Infra',
-      'DYNA': 'Dynasty Retail',
-      'ECHE': 'Echelon Tech'
+    // 1. PIN SECURITY GATE
+    const STATIC_PIN = "1234"; // Set your standard PIN here
+    
+    function verifyPin() {
+      const input = document.getElementById("pin-input").value;
+      if (input === STATIC_PIN) {
+        sessionStorage.setItem("ps_auth", "true");
+        document.getElementById("pin-gate").classList.add("hidden-gate");
+        document.getElementById("app-container").classList.remove("hidden-gate");
+      } else {
+        document.getElementById("pin-error").classList.remove("hidden");
+      }
+    }
+
+    function lockApp() {
+      sessionStorage.removeItem("ps_auth");
+      location.reload();
+    }
+
+    if (sessionStorage.getItem("ps_auth") === "true") {
+      document.getElementById("pin-gate").classList.add("hidden-gate");
+      document.getElementById("app-container").classList.remove("hidden-gate");
+    }
+
+    // 2. FIREBASE INITIALIZATION WITH YOUR EXACT CREDENTIALS
+    const firebaseConfig = {
+      apiKey: "AIzaSyArP8ZKt7bpftq3hthAvpGU8rXCPq_9sEk",
+      authDomain: "promotersync.firebaseapp.com",
+      projectId: "promotersync",
+      storageBucket: "promotersync.firebasestorage.app",
+      messagingSenderId: "274799726455",
+      appId: "1:274799726455:web:5e9d0be719a285b1ac9b72"
     };
 
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // 3. APPLICATION STATE
     let currentPromoter = "DR";
-    let currentCompanyFilter = "ALL";
-    let isClosedCollapsed = true;
+    let allTasks = [];
 
-    let tasks = [
-      {
-        id: "001 - APEX",
-        numberSeq: 1,
-        companyCode: "APEX",
-        companyName: "Apex Holdings",
-        title: "Finalize FY26 Statutory Group Audit",
-        scope: "Complete external audit verification across holding entities.",
-        creator: "DR",
-        assignee: "NG",
-        status: "Given",
-        isOnHold: false,
-        targetDate: "2026-10-15",
-        revisionCount: 0,
-        completedAt: null,
-        stageHistory: [
-          { stage: "Given", timestamp: "2026-09-18 09:30 AM", by: "DR" }
-        ],
-        subtasks: [
-          { text: "Approve audit firm engagement letter", completed: true },
-          { text: "Submit draft financial notes", completed: false }
-        ],
-        chats: [
-          { author: "DR", text: "Please expedite this before the Q3 board meeting.", timestamp: "2026-09-18 10:30 AM" }
-        ]
-      }
-    ];
-
-    function init() {
-      const savedTasks = localStorage.getItem("ps_tasks_v5");
-      if (savedTasks) {
-        try { tasks = JSON.parse(savedTasks); } catch (e) {}
-      }
-
-      const savedCompanies = localStorage.getItem("ps_companies_v5");
-      if (savedCompanies) {
-        try { companyMap = JSON.parse(savedCompanies); } catch (e) {}
-      }
-
-      renderCompanyUI();
-      switchPromoter("DR");
-      renderBoard();
+    function switchPromoter(role) {
+      currentPromoter = role;
+      updateNextTaskId(allTasks);
+      renderTasks(allTasks);
     }
 
-    function saveState() {
-      localStorage.setItem("ps_tasks_v5", JSON.stringify(tasks));
-      localStorage.setItem("ps_companies_v5", JSON.stringify(companyMap));
-      renderCompanyUI();
-      renderBoard();
-    }
-
-    function getNowFormatted() {
-      const now = new Date();
-      return now.toISOString().split('T')[0] + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function switchPromoter(p) {
-      currentPromoter = p;
-      document.getElementById("btn-promoter-dr").className = p === 'DR' ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-sm border border-slate-200' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
-      document.getElementById("btn-promoter-ng").className = p === 'NG' ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-sm border border-slate-200' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
-      document.getElementById("btn-joint").className = p === 'Joint' ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-sm border border-slate-200' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
-      renderBoard();
-    }
-
-    function renderCompanyUI() {
-      const filterBar = document.getElementById("company-filter-bar");
-      filterBar.innerHTML = `
-        <button onclick="filterCompany('ALL')" class="company-btn ${currentCompanyFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'} px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200">All Entities</button>
-      `;
-
-      const selectModal = document.getElementById("new-company");
-      selectModal.innerHTML = "";
-
-      const managerList = document.getElementById("company-manager-list");
-      managerList.innerHTML = "";
-
-      const codes = Object.keys(companyMap);
-      document.getElementById("metric-companies").innerText = `${codes.length} Entities`;
-
-      codes.forEach(code => {
-        const name = companyMap[code];
-
-        const btn = document.createElement("button");
-        btn.onclick = () => filterCompany(code);
-        btn.className = `company-btn ${currentCompanyFilter === code ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'} px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 font-mono`;
-        btn.innerText = code;
-        filterBar.appendChild(btn);
-
-        const opt = document.createElement("option");
-        opt.value = code;
-        opt.innerText = `${code} - ${name}`;
-        selectModal.appendChild(opt);
-
-        const row = document.createElement("div");
-        row.className = "flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-200";
-        row.innerHTML = `
-          <input type="text" value="${code}" maxlength="4" onchange="updateCompanyCode('${code}', this.value)" class="w-16 bg-white border border-slate-200 rounded p-1 text-xs font-bold font-mono text-center uppercase focus:outline-none" title="Change Suffix (4 chars max)">
-          <input type="text" value="${name}" onchange="updateCompanyName('${code}', this.value)" class="flex-1 bg-white border border-slate-200 rounded p-1 text-xs focus:outline-none" title="Edit Company Name">
-          <button onclick="deleteCompany('${code}')" class="text-slate-300 hover:text-red-600 p-1 text-xs" title="Delete Entity"><i class="fa-solid fa-trash-can"></i></button>
-        `;
-        managerList.appendChild(row);
+    // 4. REAL-TIME FIREBASE SYNC (FIRESTORE)
+    function initializeCloudSync() {
+      db.collection("tasks").onSnapshot((snapshot) => {
+        allTasks = [];
+        snapshot.forEach((doc) => {
+          allTasks.push(doc.data());
+        });
+        
+        // Client-side sort to avoid Firestore index requirement issues
+        allTasks.sort((a, b) => b.createdAt - a.createdAt);
+        
+        updateMetrics(allTasks);
+        renderTasks(allTasks);
+      }, (error) => {
+        console.error("Firebase sync error: ", error);
       });
     }
 
-    function openCompanyManager() {
-      renderCompanyUI();
-      document.getElementById("modal-company-manager").classList.remove("hidden");
-    }
-
-    function closeCompanyManager() {
-      document.getElementById("modal-company-manager").classList.add("hidden");
-    }
-
-    function addNewCompany() {
-      const codeInput = document.getElementById("add-comp-code");
-      const nameInput = document.getElementById("add-comp-name");
-      let code = codeInput.value.trim().toUpperCase().slice(0, 4);
-      const name = nameInput.value.trim();
-
-      if (!code || !name) { alert("Please provide a suffix (1-4 letters) and company name."); return; }
-
-      if (companyMap[code]) {
-        alert(`Company suffix '${code}' already exists.`);
-        return;
-      }
-
-      companyMap[code] = name;
-      saveState();
-      codeInput.value = "";
-      nameInput.value = "";
-    }
-
-    function updateCompanyCode(oldCode, newCode) {
-      newCode = newCode.trim().toUpperCase().slice(0, 4);
-      if (!newCode) return;
-      if (newCode === oldCode) return;
-
-      if (companyMap[newCode]) {
-        alert(`Company suffix '${newCode}' already exists.`);
-        renderCompanyUI();
-        return;
-      }
-
-      const name = companyMap[oldCode];
-      delete companyMap[oldCode];
-      companyMap[newCode] = name;
-
-      // Update all tasks associated with old code
-      tasks.forEach(t => {
-        if (t.companyCode === oldCode) {
-          t.companyCode = newCode;
-          t.id = `${String(t.numberSeq).padStart(3, '0')} - ${newCode}`;
-        }
-      });
-
-      if (currentCompanyFilter === oldCode) {
-        currentCompanyFilter = newCode;
-      }
-
-      saveState();
-    }
-
-    function updateCompanyName(code, newName) {
-      if (!newName.trim()) return;
-      companyMap[code] = newName.trim();
-      tasks.forEach(t => { if (t.companyCode === code) t.companyName = newName.trim(); });
-      saveState();
-    }
-
-    function deleteCompany(code) {
-      if (Object.keys(companyMap).length <= 1) {
-        alert("You must maintain at least one company entity.");
-        return;
-      }
-      if (confirm(`Delete entity suffix '${code}'? Directives under this company will remain but won't match an active company.`)) {
-        delete companyMap[code];
-        if (currentCompanyFilter === code) currentCompanyFilter = "ALL";
-        saveState();
-      }
-    }
-
-    function filterCompany(code) {
-      currentCompanyFilter = code;
-      renderCompanyUI();
-      renderBoard();
-    }
-
-    function toggleClosedColumn() {
-      isClosedCollapsed = !isClosedCollapsed;
-      const icon = document.getElementById("closed-collapse-icon");
-      if (icon) icon.className = isClosedCollapsed ? "fa-solid fa-chevron-right text-[10px] text-slate-400" : "fa-solid fa-chevron-down text-[10px] text-slate-400";
-      renderBoard();
-    }
-
-    function renderBoard() {
-      const search = (document.getElementById("search-input").value || "").toLowerCase();
-      const filtered = tasks.filter(t => {
-        const matchesComp = currentCompanyFilter === "ALL" || t.companyCode === currentCompanyFilter;
-        const matchesSearch = t.id.toLowerCase().includes(search) || t.title.toLowerCase().includes(search);
-        return matchesComp && matchesSearch;
-      });
-
-      // DECISION/TASK-WISE METRICS CALCULATIONS
-      document.getElementById("metric-total").innerText = tasks.length;
-      document.getElementById("metric-delivered").innerText = tasks.filter(t => t.status === "Delivered").length;
-      document.getElementById("metric-hold").innerText = tasks.filter(t => t.isOnHold).length;
-
-      const totalRevisions = tasks.reduce((acc, t) => acc + (t.revisionCount || 0), 0);
-      document.getElementById("metric-revisions").innerText = totalRevisions;
-
-      const closedTasks = tasks.filter(t => t.status === "Closed");
-      if (closedTasks.length === 0) {
-        document.getElementById("metric-ontime").innerText = "100%";
-      } else {
-        const onTimeCount = closedTasks.filter(t => {
-          if (!t.targetDate || !t.completedAt) return true;
-          return t.completedAt.split(' ')[0] <= t.targetDate;
-        }).length;
-        const rate = Math.round((onTimeCount / closedTasks.length) * 100);
-        document.getElementById("metric-ontime").innerText = `${rate}%`;
-      }
-
-      renderColumn("col-given", filtered.filter(t => t.status === "Given"), "count-given");
-      renderColumn("col-in-progress", filtered.filter(t => t.status === "In Progress"), "count-in-progress");
-      renderColumn("col-delivered", filtered.filter(t => t.status === "Delivered"), "count-delivered");
-      renderColumn("col-closed", filtered.filter(t => t.status === "Closed"), "count-closed", isClosedCollapsed);
-    }
-
-    function renderColumn(colId, list, countId, minimized = false) {
-      document.getElementById(countId).innerText = list.length;
-      const col = document.getElementById(colId);
-      col.innerHTML = "";
-
-      if (minimized) {
-        col.innerHTML = `
-          <div onclick="toggleClosedColumn()" class="bg-white p-3 rounded-lg border border-slate-200 text-center text-xs text-slate-500 font-medium cursor-pointer hover:bg-slate-50">
-            <i class="fa-solid fa-eye-slash mr-1 text-slate-400"></i> ${list.length} Directives Minimized. Click to expand.
-          </div>
-        `;
-        return;
-      }
-
-      list.forEach(task => {
-        const card = document.createElement("div");
-        card.className = `bg-white p-4 rounded-xl border ${task.isOnHold ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200'} shadow-sm hover:shadow transition relative group`;
-
-        card.innerHTML = `
-          <div class="flex justify-between items-start mb-2" onclick="openDrawer('${task.id}')">
-            <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-white font-mono">${task.id}</span>
-            <div class="flex items-center gap-1">
-              ${task.isOnHold ? '<span class="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full"><i class="fa-solid fa-pause mr-1"></i>HOLD</span>' : ''}
-              <button onclick="event.stopPropagation(); deleteTask('${task.id}')" class="text-slate-300 hover:text-red-600 px-1 py-0.5 text-xs transition" title="Delete Directive"><i class="fa-solid fa-trash-can"></i></button>
-            </div>
-          </div>
-          <div onclick="openDrawer('${task.id}')">
-            <h3 class="font-semibold text-slate-900 text-sm mb-1">${task.title}</h3>
-            <p class="text-xs text-slate-500 line-clamp-2 mb-3">${task.scope}</p>
-            <div class="flex justify-between items-center text-[11px] text-slate-500 border-t border-slate-100 pt-2.5">
-              <span>By: <strong>Promoter ${task.creator}</strong></span>
-              <span>Target: <strong>${task.targetDate || 'N/A'}</strong></span>
-            </div>
-          </div>
-        `;
-        col.appendChild(card);
-      });
-    }
-
-    function openNewTaskModal() { document.getElementById("modal-new-task").classList.remove("hidden"); }
-    function closeNewTaskModal() { document.getElementById("modal-new-task").classList.add("hidden"); }
-
-    function createNewTask() {
-      const compCode = document.getElementById("new-company").value;
-      const title = document.getElementById("new-title").value.trim();
-      const scope = document.getElementById("new-scope").value.trim();
-      const assignee = document.getElementById("new-assignee").value;
-      const date = document.getElementById("new-date").value;
-
-      if (!title) { alert("Please enter a directive title"); return; }
-
-      const nextNum = tasks.length + 1;
-      const formattedId = `${String(nextNum).padStart(3, '0')} - ${compCode}`;
-      const nowStr = getNowFormatted();
+    // 5. CREATE TASK LOGIC
+    function handleCreateTask(e) {
+      e.preventDefault();
+      
+      const title = document.getElementById("task-title").value;
+      const assignee = document.getElementById("task-assignee").value;
+      const decision = document.getElementById("task-decision").value;
+      
+      // Dynamic Suffix based on Creator Role (A for DR, B for NG)
+      const suffix = currentPromoter === "DR" ? "A" : "B";
+      const taskIndex = String(allTasks.length + 1).padStart(3, '0');
+      const taskId = `${taskIndex} - ${suffix}`;
 
       const newTask = {
-        id: formattedId,
-        numberSeq: nextNum,
-        companyCode: compCode,
-        companyName: companyMap[compCode] || "Group Entity",
+        id: taskId,
         title: title,
-        scope: scope,
         creator: currentPromoter,
         assignee: assignee,
-        status: "Given",
-        isOnHold: false,
-        targetDate: date,
-        revisionCount: 0,
-        completedAt: null,
-        stageHistory: [{ stage: "Given", timestamp: nowStr, by: currentPromoter }],
-        subtasks: [],
-        chats: []
+        decisionLink: decision || "None",
+        status: "Active", // Active, Hold, Completed
+        subTasks: [],
+        createdAt: Date.now()
       };
 
-      tasks.push(newTask);
-      saveState();
-      closeNewTaskModal();
-      document.getElementById("new-title").value = "";
-      document.getElementById("new-scope").value = "";
+      // Save directly to Firebase Firestore
+      db.collection("tasks").doc(taskId).set(newTask)
+        .then(() => {
+          document.getElementById("create-task-form").reset();
+        })
+        .catch((err) => alert("Error creating task: " + err.message));
     }
 
-    function openDrawer(taskId) {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
+    // 6. UPDATE / EDIT TASK FUNCTIONALITY
+    function toggleHoldStatus(taskId, currentStatus) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (task.creator !== currentPromoter) {
+        alert(`Permissions Restricted: Only Promoter ${task.creator} can edit this task rule.`);
+        return;
+      }
 
-      document.getElementById("drawer-formatted-id").innerText = task.id;
-      document.getElementById("drawer-company-name").innerText = task.companyName;
+      const newStatus = currentStatus === "Hold" ? "Active" : "Hold";
+      db.collection("tasks").doc(taskId).update({ status: newStatus });
+    }
 
-      const isCreator = currentPromoter === task.creator;
-      const body = document.getElementById("drawer-body");
+    function toggleCompleteStatus(taskId, currentStatus) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (task.creator !== currentPromoter) {
+        alert(`Permissions Restricted: Only Promoter ${task.creator} can mark this complete.`);
+        return;
+      }
 
-      body.innerHTML = `
-        <div>
-          <div class="flex justify-between items-start mb-2">
-            <h2 class="text-lg font-bold text-slate-900">${task.title}</h2>
-            <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${isCreator ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-              ${isCreator ? 'Issuer Mode' : 'Assignee Mode'}
-            </span>
-          </div>
-          <p class="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200">${task.scope || 'No extended scope specified.'}</p>
-        </div>
+      const newStatus = currentStatus === "Completed" ? "Active" : "Completed";
+      db.collection("tasks").doc(taskId).update({ status: newStatus });
+    }
 
-        <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex justify-between items-center">
-          <div>
-            <span class="text-xs font-semibold text-slate-700 block">Current Stage:</span>
-            <select onchange="updateTaskStage('${task.id}', this.value)" class="text-xs border border-slate-200 rounded p-1 mt-1 bg-white">
-              <option value="Given" ${task.status === 'Given' ? 'selected' : ''}>Given / Issued</option>
-              <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Execution</option>
-              <option value="Delivered" ${task.status === 'Delivered' ? 'selected' : ''}>Delivered (Review)</option>
-              <option value="Closed" ${task.status === 'Closed' ? 'selected' : ''}>Closed & Reviewed</option>
-            </select>
-          </div>
-          <button onclick="toggleHold('${task.id}')" class="px-3 py-1 rounded text-xs font-semibold ${task.isOnHold ? 'bg-slate-900 text-white' : 'bg-orange-100 text-orange-700'}">
-            ${task.isOnHold ? 'Resume Task' : 'Put On Hold'}
-          </button>
-        </div>
+    function addSubTask(taskId) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (task.creator !== currentPromoter) {
+        alert(`Permissions Restricted: Only Promoter ${task.creator} can edit this task.`);
+        return;
+      }
 
-        <div>
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Subtasks Execution</h4>
-          <div class="space-y-2 mb-2">
-            ${(task.subtasks || []).map((st, idx) => `
-              <div class="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-200 text-xs">
-                <div class="flex items-center gap-2">
-                  <input type="checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask('${task.id}',${idx})" class="rounded">
-                  <span class="${st.completed ? 'line-through text-slate-400' : 'text-slate-800'}">${st.text}</span>
-                </div>
-                ${st.completedAt ? `<span class="text-[10px] text-slate-400">${st.completedAt}</span>` : ''}
+      if (task.subTasks && task.subTasks.length >= 5) {
+        alert("Sub-task limit reached! Maximum 5 allowed per task.");
+        return;
+      }
+
+      const subTitle = prompt("Enter sub-task item:");
+      if (subTitle) {
+        const updatedSubTasks = task.subTasks || [];
+        updatedSubTasks.push({ title: subTitle, completed: false });
+        
+        db.collection("tasks").doc(taskId).update({ subTasks: updatedSubTasks });
+      }
+    }
+
+    function toggleSubTask(taskId, subIndex) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (task.creator !== currentPromoter) {
+        alert(`Permissions Restricted: Only Promoter ${task.creator} can edit this task.`);
+        return;
+      }
+
+      const updatedSubTasks = [...task.subTasks];
+      updatedSubTasks[subIndex].completed = !updatedSubTasks[subIndex].completed;
+
+      db.collection("tasks").doc(taskId).update({ subTasks: updatedSubTasks });
+    }
+
+    // 7. PDF SUMMARY REPORT GENERATOR
+    function exportToPDF() {
+      const element = document.getElementById("app-container");
+      const opt = {
+        margin:       0.5,
+        filename:     `PromoterSync_Report_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+      };
+      
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // 8. DASHBOARD UI RENDERER
+    function updateNextTaskId(tasks) {
+      const suffix = currentPromoter === "DR" ? "A" : "B";
+      const nextId = String(tasks.length + 1).padStart(3, '0') + ` - ${suffix}`;
+      document.getElementById("next-task-id").innerText = `Next ID: ${nextId}`;
+    }
+
+    function updateMetrics(tasks) {
+      document.getElementById("stat-total").innerText = tasks.length;
+      document.getElementById("stat-hold").innerText = tasks.filter(t => t.status === "Hold").length;
+      document.getElementById("stat-active").innerText = tasks.filter(t => t.status === "Active").length;
+      document.getElementById("stat-completed").innerText = tasks.filter(t => t.status === "Completed").length;
+      updateNextTaskId(tasks);
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById("tasks-container");
+      
+      if (tasks.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-800 text-slate-500">No tasks created yet. Use the panel on the left to start.</div>`;
+        return;
+      }
+
+      container.innerHTML = tasks.map(task => {
+        const isOwner = task.creator === currentPromoter;
+        const subTasks = task.subTasks || [];
+
+        return `
+          <div class="bg-slate-800/60 border ${task.status === 'Hold' ? 'border-yellow-500/40' : task.status === 'Completed' ? 'border-emerald-500/40' : 'border-slate-700'} p-5 rounded-xl transition">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700/50 pb-3 mb-3">
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-xs font-bold text-blue-400 bg-blue-950 px-2 py-1 rounded border border-blue-800/50">${task.id}</span>
+                <h3 class="text-lg font-semibold text-slate-100 ${task.status === 'Completed' ? 'line-through text-slate-400' : ''}">${task.title}</h3>
+                <span class="text-xs px-2 py-0.5 rounded ${task.status === 'Hold' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30' : task.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'}">${task.status}</span>
               </div>
-            `).join('')}
-          </div>
-          <div class="flex gap-2">
-            <input type="text" id="subtask-input" placeholder="Add subtask requirement..." class="flex-1 bg-slate-50 border border-slate-200 rounded p-1.5 text-xs">
-            <button onclick="addSubtask('${task.id}')" class="bg-slate-900 text-white px-3 py-1.5 rounded text-xs">Add</button>
-          </div>
-        </div>
-
-        <div>
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Audit Trail (Stage Transitions)</h4>
-          <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
-            ${(task.stageHistory || []).map(h => `
-              <div class="text-[11px] flex justify-between text-slate-600 border-b border-slate-100 pb-1">
-                <span>Stage changed to <strong>${h.stage}</strong> by Promoter${h.by}</span>
-                <span class="text-slate-400 font-mono">${h.timestamp}</span>
+              <div class="flex items-center gap-2 text-xs text-slate-400">
+                <span>Creator: <strong class="text-slate-200">${task.creator}</strong></span>
+                <span>•</span>
+                <span>Assignee: <strong class="text-slate-200">${task.assignee}</strong></span>
               </div>
-            `).join('')}
-          </div>
-        </div>
+            </div>
 
-        <div class="border-t border-slate-200 pt-4">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3"><i class="fa-regular fa-comments mr-1"></i> Governance Discussion Log</h4>
-          <div class="space-y-2 mb-3 max-h-40 overflow-y-auto custom-scrollbar">
-            ${(task.chats || []).map(c => `
-              <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
-                <div class="flex justify-between text-slate-400 text-[10px] mb-1">
-                  <strong>Promoter ${c.author}</strong>
-                  <span>${c.timestamp}</span>
-                </div>
-                <p class="text-slate-700">${c.text}</p>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div class="text-xs text-slate-400">
+                <span class="block">Linked Decision: <strong class="text-slate-300">${task.decisionLink}</strong></span>
+                <span class="block mt-1">Sub-tasks: ${subTasks.length}/5</span>
               </div>
-            `).join('')}
-          </div>
-          <div class="flex gap-2">
-            <input type="text" id="chat-input" placeholder="Type governance note..." class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none">
-            <button onclick="sendChat('${task.id}')" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Send</button>
-          </div>
-        </div>
 
-        <div class="border-t border-slate-200 pt-4 flex justify-between items-center">
-          <button onclick="deleteTask('${task.id}')" class="bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
-            <i class="fa-solid fa-trash-can"></i> Delete Directive
-          </button>
-          <button onclick="closeDrawer()" class="bg-slate-200 text-slate-700 px-4 py-1.5 rounded-lg text-xs font-semibold">Close</button>
-        </div>
-      `;
-
-      document.getElementById("task-drawer").classList.remove("hidden");
-    }
-
-    function closeDrawer() { document.getElementById("task-drawer").classList.add("hidden"); }
-
-    function updateTaskStage(taskId, newStage) {
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.status !== newStage) {
-        if (task.status === "Delivered" && newStage === "In Progress") {
-          task.revisionCount = (task.revisionCount || 0) + 1;
-        }
-
-        task.status = newStage;
-        const nowStr = getNowFormatted();
-
-        if (newStage === "Closed") {
-          task.completedAt = nowStr;
-        }
-
-        if (!task.stageHistory) task.stageHistory = [];
-        task.stageHistory.push({ stage: newStage, timestamp: nowStr, by: currentPromoter });
-
-        saveState();
-        openDrawer(taskId);
-      }
-    }
-
-    function toggleHold(taskId) {
-      const task = tasks.find(t => t.id === taskId);
-      if (task) {
-        task.isOnHold = !task.isOnHold;
-        saveState();
-        openDrawer(taskId);
-      }
-    }
-
-    function toggleSubtask(taskId, idx) {
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.subtasks[idx]) {
-        task.subtasks[idx].completed = !task.subtasks[idx].completed;
-        task.subtasks[idx].completedAt = task.subtasks[idx].completed ? getNowFormatted() : null;
-        saveState();
-        openDrawer(taskId);
-      }
-    }
-
-    function addSubtask(taskId) {
-      const input = document.getElementById("subtask-input");
-      if (!input || !input.value.trim()) return;
-      const task = tasks.find(t => t.id === taskId);
-      if (task) {
-        if (!task.subtasks) task.subtasks = [];
-        task.subtasks.push({ text: input.value.trim(), completed: false, completedAt: null });
-        saveState();
-        openDrawer(taskId);
-      }
-    }
-
-    function sendChat(taskId) {
-      const input = document.getElementById("chat-input");
-      if (!input || !input.value.trim()) return;
-      const task = tasks.find(t => t.id === taskId);
-      if (task) {
-        if (!task.chats) task.chats = [];
-        task.chats.push({
-          author: currentPromoter,
-          text: input.value.trim(),
-          timestamp: getNowFormatted()
-        });
-        saveState();
-        openDrawer(taskId);
-      }
-    }
-
-    function deleteTask(taskId) {
-      if (confirm(`Are you sure you want to permanently delete Directive ${taskId}?`)) {
-        tasks = tasks.filter(t => t.id !== taskId);
-        saveState();
-        closeDrawer();
-      }
-    }
-
-    // PDF REPORT GENERATOR WITH TIME AND DATE STAMPS
-    function generatePDFReport() {
-      const printArea = document.getElementById("print-report-area");
-      const generatedDate = getNowFormatted();
-
-      const closedCount = tasks.filter(t => t.status === "Closed").length;
-      const deliveredCount = tasks.filter(t => t.status === "Delivered").length;
-      const inProgressCount = tasks.filter(t => t.status === "In Progress").length;
-      const givenCount = tasks.filter(t => t.status === "Given").length;
-      const totalRevisions = tasks.reduce((acc, t) => acc + (t.revisionCount || 0), 0);
-
-      let html = `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div>
-              <h1 style="font-size: 20pt; font-weight: bold; margin: 0; color: #0f172a;">PromoterSync Executive Governance Audit Report</h1>
-              <p style="font-size: 10pt; color: #475569; margin: 4px 0 0 0;">Group Portfolio Decision & Directive Performance Audit</p>
-            </div>
-            <div style="text-align: right; font-size: 9pt; color: #64748b;">
-              <div><strong>Generated On:</strong> ${generatedDate}</div>
-              <div><strong>Active View:</strong> Promoter ${currentPromoter}</div>
-            </div>
-          </div>
-
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
-            <h3 style="font-size: 11pt; font-weight: bold; margin: 0 0 10px 0; text-transform: uppercase; color: #334155;">Task & Governance Metric Overview</h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 9pt;">
-              <tr>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>Total Directives:</strong> ${tasks.length}</td>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>Closed & Approved:</strong> ${closedCount}</td>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>Awaiting Review:</strong> ${deliveredCount}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>In Execution:</strong> ${inProgressCount}</td>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>Newly Issued:</strong> ${givenCount}</td>
-                <td style="padding: 6px; border: 1px solid #cbd5e1; background: #fff;"><strong>Total Revisions Triggered:</strong> ${totalRevisions}</td>
-              </tr>
-            </table>
-          </div>
-
-          <h2 style="font-size: 13pt; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; color: #0f172a;">Complete Directive Audit Trail</h2>
-      `;
-
-      tasks.forEach((t, idx) => {
-        html += `
-          <div style="margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; page-break-inside: avoid;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 8px;">
-              <span style="font-weight: bold; font-size: 10pt; color: #0f172a;">[${t.id}] ${t.title}</span>
-              <span style="font-size: 9pt; font-weight: bold; padding: 2px 8px; border-radius: 4px; background: #f1f5f9;">Status: ${t.status} ${t.isOnHold ? '(ON HOLD)' : ''}</span>
+              <!-- ACTION CONTROLS -->
+              <div class="flex items-center gap-2">
+                <button onclick="addSubTask('${task.id}')" ${!isOwner ? 'disabled class="opacity-40 cursor-not-allowed bg-slate-700 text-slate-400 text-xs px-3 py-1.5 rounded"' : 'class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded transition"'}>
+                  + Sub-task
+                </button>
+                <button onclick="toggleHoldStatus('${task.id}', '${task.status}')" ${!isOwner ? 'disabled class="opacity-40 cursor-not-allowed bg-slate-700 text-slate-400 text-xs px-3 py-1.5 rounded"' : 'class="bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/40 text-xs px-3 py-1.5 rounded transition"'}>
+                  ${task.status === 'Hold' ? 'Resume' : 'Put on Hold'}
+                </button>
+                <button onclick="toggleCompleteStatus('${task.id}', '${task.status}')" ${!isOwner ? 'disabled class="opacity-40 cursor-not-allowed bg-slate-700 text-slate-400 text-xs px-3 py-1.5 rounded"' : 'class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 text-xs px-3 py-1.5 rounded transition"'}>
+                  ${task.status === 'Completed' ? 'Reopen' : 'Mark Complete'}
+                </button>
+              </div>
             </div>
 
-            <div style="font-size: 8.5pt; color: #334155; margin-bottom: 8px;">
-              <strong>Company:</strong> Entity ${t.companyCode} (${t.companyName}) | 
-              <strong>Issuer:</strong> Promoter ${t.creator} | 
-              <strong>Assignee:</strong> Promoter ${t.assignee} | 
-              <strong>Target Date:</strong> ${t.targetDate || 'N/A'} |
-              <strong>Revisions:</strong> ${t.revisionCount || 0}
-            </div>
-
-            <div style="font-size: 8.5pt; color: #475569; background: #f8fafc; padding: 6px; border-radius: 4px; margin-bottom: 8px;">
-              <strong>Scope:</strong> ${t.scope || 'N/A'}
-            </div>
-
-            <div style="font-size: 8pt; margin-bottom: 6px;">
-              <strong>Stage Transition History (Time Stamps):</strong>
-              <ul style="margin: 4px 0 0 15px; padding: 0; color: #475569;">
-                ${(t.stageHistory || []).map(h => `<li>Stage <strong>${h.stage}</strong> logged at ${h.timestamp} by Promoter${h.by}</li>`).join('')}
-              </ul>
-            </div>
-
-            ${(t.subtasks && t.subtasks.length > 0) ? `
-              <div style="font-size: 8pt;">
-                <strong>Subtask Completions:</strong>
-                <ul style="margin: 4px 0 0 15px; padding: 0; color: #475569;">
-                  ${t.subtasks.map(st => `<li>[${st.completed ? 'COMPLETED' : 'PENDING'}] ${st.text} ${st.completedAt ? 'at ' + st.completedAt : ''}</li>`).join('')}
-                </ul>
+            <!-- SUB-TASKS LIST -->
+            ${subTasks.length > 0 ? `
+              <div class="mt-4 pt-3 border-t border-slate-700/30 space-y-1.5">
+                ${subTasks.map((st, idx) => `
+                  <div class="flex items-center gap-2 text-xs text-slate-300">
+                    <input type="checkbox" ${st.completed ? 'checked' : ''} ${!isOwner ? 'disabled' : ''} onchange="toggleSubTask('${task.id}', ${idx})" class="rounded bg-slate-900 border-slate-700 text-blue-500">
+                    <span class="${st.completed ? 'line-through text-slate-500' : ''}">${st.title}</span>
+                  </div>
+                `).join('')}
               </div>
             ` : ''}
           </div>
         `;
-      });
-
-      html += `</div>`;
-
-      printArea.innerHTML = html;
-      printArea.classList.remove("hidden");
-      window.print();
-      printArea.classList.add("hidden");
+      }).join('');
     }
 
-    window.onload = init;
+    // Initialize Firebase Listener when Document Loads
+    document.addEventListener("DOMContentLoaded", initializeCloudSync);
   </script>
 </body>
 </html>
